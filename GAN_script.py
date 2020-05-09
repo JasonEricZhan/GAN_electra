@@ -349,7 +349,7 @@ class GAN():
           dfx = pd.read_csv(TRAINING_FILE)
           dfx = preprocess_df(dfx)
           
-          #argumenting
+          #
           dfx_copy=dfx.copy()
           
           train_dataset = TweetDataset(
@@ -362,49 +362,53 @@ class GAN():
                                    batch_size=32,
                                    num_workers=4
                                    )
-          #
+          #can sample at there
           self.G.train()
           self.D.train()
           tk0 = tqdm(train_data_loader, total=len(train_data_loader))
+          data_len=len(train_data_loader)
           for t in range(epochs):
               for bi, d in enumerate(tk0):
-                  D_Z,g_input=self.single_train(d,self.G,optimizer_2,device,reture_str=True)
+                  #add input of G
+                  g_input=self.single_train(d,self.G,optimizer_2,device,reture_prob=False)
                   dfx_copy['text'].iloc[bi*batch_size:(bi+1)*batch_size,]=np.asarray(g_input)
-                  self.G.zero_grad()
-                  self.D.zero_grad()
-                  D_Z=(torch.tensor(np.ones((D_Z.size()[0],D_Z.size()[1])))-D_Z).log()
-                  D_X=self.single_train(d,self.D,device,reture_str=True)
-  
-                  for i in range(k):
-                      
-                      #TweetDataset with GAN
-                      self.D.zero_grad()
-                      train_g_dataset = TweetDataset(
+                  
+                 
+                  
+              self.G.zero_grad()
+              train_g_dataset = TweetDataset(
                                 tweet=dfx_copy.text.values,
                                 sentiment=dfx_copy.sentiment.values,
                                 selected_text=dfx_copy.selected_text.values
                                 )
-
-                      train_data_g_loader = torch.utils.data.DataLoader(
+              train_data_g_loader = torch.utils.data.DataLoader(
                                    train_g_dataset,
                                    batch_size=32,
                                    num_workers=4
                                    )
-                
-                      tk1 = tqdm(train_data_g_loader, total=len(train_data_g_loader))
-                      for  bi, dg in enumerate(tk1):
-                            D_Z=self.single_train(dg,self.D,optimizer_1,device,reture_str=False)                   
+              for i in range(k):
+                      idx=np.random.choice(data_len,replace=True)
+                      
+                      
+              
+                      
+                      #training D
+                      g=train_data_loader[idx]
+                      dg=train_data_g_loader[idx]
+                        
+                      D_X=self.single_train(d,self.D,device,reture_prob=True)
+                      D_Z=self.single_train(dg,self.D,optimizer_1,device,reture_prob=False)                   
                       loss_inner=D_X.log()+D_Z.log()
                       loss_inner=loss_inner.sum(-1)/batch_size
-                      (-loss_inner).backward()
-                      optimizer_1.step()
+                       (-loss_inner).backward()
+                       optimizer_1.step()
                       
               
               loss_gen=D_Z.log()
               loss_gen=loss_gen.sum(-1)/batch_size
               loss_gen.backward()
               optimizer_2.step()
-        
+              #here use all batch maybe can just sample to D
       
                   
       
