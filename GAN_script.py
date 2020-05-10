@@ -277,7 +277,7 @@ class GAN():
         
         
         
-      def single_train(self,data_dict, model, optimizer, device,reture_prob=True,scheduler=None):
+      def single_train(self,data_dict, model, device,reture_prob=True,scheduler=None):
           #model.train()
           losses = AverageMeter()
           jaccards = AverageMeter()
@@ -309,10 +309,10 @@ class GAN():
                   mask=mask,
                   token_type_ids=token_type_ids,
           )
-              #loss = loss_fn(outputs_start, outputs_end, targets_start, targets_end)
-              #loss.backward()
-              #optimizer.step()
-              #scheduler.step()
+           #loss = loss_fn(outputs_start, outputs_end, targets_start, targets_end)
+           #loss.backward()
+           #
+          
               
           outputs_start = torch.softmax(outputs_start, dim=1).cpu().detach().numpy()
           outputs_end = torch.softmax(outputs_end, dim=1).cpu().detach().numpy()
@@ -367,47 +367,75 @@ class GAN():
           self.D.train()
           tk0 = tqdm(train_data_loader, total=len(train_data_loader))
           data_len=len(train_data_loader)
+          criterion = nn.BCELoss() 
+          d_optimizer = optim.Adam(self.D.parameters(), lr=d_learning_rate, betas=optim_betas)
+          g_optimizer = optim.Adam(self.G.parameters(), lr=g_learning_rate, betas=optim_betas)
+          
+          idxs=np.random.choice(data_len,size=number_batch_each,replace=True)
+            
+            
           for t in range(epochs):
               for bi, d in enumerate(tk0):
                   #add input of G
-                  g_input=self.single_train(d,self.G,optimizer_2,device,reture_prob=False)
+                  if bi not in idxs:
+                     continue
+                
+                  self.G.zero_grad()
+                  g_input=self.single_train(d,self.G,device,reture_prob=False)
                   dfx_copy['text'].iloc[bi*batch_size:(bi+1)*batch_size,]=np.asarray(g_input)
+                  dg = TweetDataset(
+                                tweet=dfx_copy['text'].iloc[bi*batch_size:(bi+1)*batch_size,].text.values,
+                                sentiment=dfx_copy['text'].iloc[bi*batch_size:(bi+1)*batch_size,].sentiment.values,
+                                selected_text=dfx_copy['text'].iloc[bi*batch_size:(bi+1)*batch_size,].selected_text.values
+                                )
+                       
+                  sp,ep=self.single_train(dg,self.D,device,reture_prob=True)  
+                  logit=(sp+ep)/2
+                  loss_gen=criterion(logit
+                                     ,Variable(torch.ones(logit_X.size()[0]))) 
+                  loss_gen=loss_gen.sum(-1)/batch_size
+                  loss_gen.backward()
+                  g_optimizer.step()
                   
-                 
-                  
-              self.G.zero_grad()
-              train_g_dataset = TweetDataset(
+                 """
+                 train_g_dataset = TweetDataset(
                                 tweet=dfx_copy.text.values,
                                 sentiment=dfx_copy.sentiment.values,
                                 selected_text=dfx_copy.selected_text.values
                                 )
-              train_data_g_loader = torch.utils.data.DataLoader(
+                 train_data_g_loader = torch.utils.data.DataLoader(
                                    train_g_dataset,
                                    batch_size=32,
                                    num_workers=4
                                    )
-              for i in range(k):
-                      idx=np.random.choice(data_len,replace=True)
+                     for i in range(k):
+                 """
+                  self.D.zero_grad()
+                      
                       
                       
               
                       
-                      #training D
-                      g=train_data_loader[idx]
-                      dg=train_data_g_loader[idx]
+                  #training D
+                  
                         
-                      D_X=self.single_train(d,self.D,device,reture_prob=True)
-                      D_Z=self.single_train(dg,self.D,optimizer_1,device,reture_prob=False)                   
-                      loss_inner=D_X.log()+D_Z.log()
-                      loss_inner=loss_inner.sum(-1)/batch_size
-                       (-loss_inner).backward()
-                       optimizer_1.step()
+                  sp,ep=self.single_train(d,self.D,device,reture_prob=True)
+                  logit_X=(sp+ep)/2
+                  sp,ep=self.single_train(dg,self.D,device,reture_prob=False)
+                  logit_Z=(sp+ep)/2
+                  loss_X= criterion(logit_X,Variable(torch.ones(logit_X.size()[0]))) 
+                  loss_Z= criterion(logit_Z,Variable(torch.zeros(logit_Z.size()[0]))) 
+                  loss_inner=(loss_X+loss_Z)/2
+                  loss_inner=loss_inner.sum(-1)/batch_size
+                  loss_inner.backward()
+                  d_optimizer.step()
                       
+              #idx=np.random.choice(data_len,replace=True)      
+              #self.D()
               
-              loss_gen=D_Z.log()
-              loss_gen=loss_gen.sum(-1)/batch_size
-              loss_gen.backward()
-              optimizer_2.step()
+              #loss_gen=loss_gen.sum(-1)/batch_size
+              #loss_gen.backward()
+              #optimizer_2.step()
               #here use all batch maybe can just sample to D
       
                   
