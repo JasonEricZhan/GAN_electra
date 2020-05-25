@@ -67,7 +67,8 @@ class TweetModel_G(transformers.BertPreTrainedModel):
 class TweetModel_D(transformers.BertPreTrainedModel):
     def __init__(self,conf):
         super(TweetModel, self).__init__(conf)
-        self.bert = transformers.RobertaModel.from_pretrained(config.ROBERTA_PATH, config=conf)
+        #self.bert = transformers.RobertaModel.from_pretrained(config.ROBERTA_PATH, config=conf)
+        self.bert = transformers.BertModel.from_pretrained(config.BERT_PATH, config=conf) # or bert 
         print(self.bert)
         self.drop_out = nn.Dropout(0.1)
         self.l0 = nn.Linear(768 , 2)
@@ -84,7 +85,8 @@ class TweetModel_D(transformers.BertPreTrainedModel):
             token_type_ids=token_type_ids
         )
 
-        out = torch.cat((out[-2],out[-1]), dim=-1)
+        #out = torch.cat((out[-2],out[-1]), dim=-1)
+        out=out[-1]
         #self.lstm = nn.LSTM(embed_size, self.hidden_size, bidirectional=True, batch_first=True)
         out = self.drop_out(out)
         #out,_=self.gru(out)
