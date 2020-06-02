@@ -108,25 +108,32 @@ class TweetModel_D(transformers.BertPreTrainedModel):
 
     
 class TweetDataset:
-    def __init__(self, tweet, sentiment, selected_text):
+    def __init__(self, tweet, sentiment, selected_text,pass_func=True):
+        
         self.tweet = tweet
         self.sentiment = sentiment
         self.selected_text = selected_text
         self.tokenizer = config.TOKENIZER
         self.max_len = config.MAX_LEN
+        self.pass_func=pass_func
         self.real_max_len=float('-inf')
     
     def __len__(self):
         return len(self.tweet)
 
     def __getitem__(self, item):
-        data = process_data(
+        
+        if self.pass_func:
+           data = process_data(
             self.tweet[item], 
             self.selected_text[item], 
             self.sentiment[item],
             self.tokenizer,
             self.max_len
-        )
+           )
+        
+        else:
+           
 
         
         #self.real_max_len=max(len(data["ids"]),self.real_max_len)
@@ -158,6 +165,9 @@ def calculate_jaccard_score(
     
     if idx_end < idx_start:
         idx_end = idx_start
+    
+        
+    
     
     filtered_output  = ""
     for ix in range(idx_start, idx_end + 1):
@@ -279,7 +289,7 @@ class GAN():
         
         
         
-      def single_train(self,data_dict, model, device,reture_prob=True,scheduler=None):
+      def single_train(self,data_dict, model, device,reture_prob=True,scheduler=None,only_id=False):
           #model.train()
           losses = AverageMeter()
           jaccards = AverageMeter()
@@ -324,18 +334,32 @@ class GAN():
           jaccard_scores = []
           fileter=[]
           for px, tweet in enumerate(orig_tweet):
-                  selected_tweet = orig_selected[px]
-                  tweet_sentiment = sentiment[px]
-                  jaccard_score, fileter_srt = calculate_jaccard_score(
-                  original_tweet=tweet,
-                  target_string=selected_tweet,
-                  sentiment_val=tweet_sentiment,
-                  idx_start=np.argmax(outputs_start[px, :]),
-                  idx_end=np.argmax(outputs_end[px, :]),
-                  offsets=offsets[px]
-                   )
-                  fileter.append(fileter_srt)
-                  jaccard_scores.append(jaccard_score)
+                  if not only_id:
+                      selected_tweet = orig_selected[px]
+                      tweet_sentiment = sentiment[px]
+                      jaccard_score, fileter_srt = calculate_jaccard_score(
+                      original_tweet=tweet,
+                      target_string=selected_tweet,
+                      sentiment_val=tweet_sentiment,
+                      idx_start=np.argmax(outputs_start[px, :]),
+                      idx_end=np.argmax(outputs_end[px, :]),
+                      offsets=offsets[px]
+                       )
+                      fileter.append(fileter_srt)
+                      jaccard_scores.append(jaccard_score)
+                   else:
+                      selected_tweet = orig_selected[px]
+                      tweet_sentiment = sentiment[px]
+                      idx_start,idx_end=np.argmax(outputs_start[px, :]),np.argmax(outputs_end[px, :])
+                      #offsets[px]
+                      if idx_end < idx_start:
+                            idx_end = idx_start
+                      filtered_output  = []
+                      for ix in range(idx_start, idx_end + 1):
+                           filtered_output += ids[offsets[ix][0]: offsets[ix][1]]
+                           if (ix+1) < len(offsets) and offsets[ix][1] < offsets[ix+1][0]:
+                               filtered_output += " "
+                      
                
           jaccards.update(np.mean(jaccard_scores), ids.size(0))
           #losses.update(loss.item(), ids.size(0))
