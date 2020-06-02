@@ -356,9 +356,9 @@ class GAN():
                             idx_end = idx_start
                       filtered_output  = []
                       for ix in range(idx_start, idx_end + 1):
-                           filtered_output += ids[offsets[ix][0]: offsets[ix][1]]
+                           filtered_output.append(ids[offsets[ix][0]: offsets[ix][1]])
                            if (ix+1) < len(offsets) and offsets[ix][1] < offsets[ix+1][0]:
-                               filtered_output += " "
+                               filtered_output.append(0)
                       
                
           jaccards.update(np.mean(jaccard_scores), ids.size(0))
